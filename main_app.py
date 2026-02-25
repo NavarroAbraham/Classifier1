@@ -13,7 +13,6 @@ from sklearn.metrics import (
     recall_score,
     f1_score,
     confusion_matrix,
-    classification_report,
 )
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
@@ -47,23 +46,23 @@ df = pd.concat([X, y], axis=1)
 # -------------------------------------------------
 st.sidebar.header("⚙️ Configuración")
 
-# 1️⃣ Selección de características para la visualización de frontera
+# 1️⃣ Selección de características
 features = st.sidebar.multiselect(
-    "Características a usar (máx 2 para frontera)",
+    "Características a usar (máx 2 para frontera)",
     options=list(X.columns),
     default=list(X.columns)[:2],
 )
 
 if len(features) != 2:
-    st.sidebar.warning("Selecciona **exactamente 2** características para la frontera.")
+    st.sidebar.warning("Selecciona **exactamente 2** características para visualizar la frontera.")
     st.stop()
 
 # 2️⃣ Modelos disponibles
 model_options = {
-    "Regresión logística": LogisticRegression(max_iter=200),
-    "K‑Vecinos (KNN)": KNeighborsClassifier(),
-    "Máquina de vectores de soporte (SVM)": SVC(probability=True),
-    "Bosques aleatorios": RandomForestClassifier(),
+    "LogisticRegression": LogisticRegression(max_iter=200),
+    "KNeighborsClassifier": KNeighborsClassifier(),
+    "SVC": SVC(probability=True),
+    "RandomForestClassifier": RandomForestClassifier(),
 }
 selected_models = st.sidebar.multiselect(
     "Modelos a entrenar",
@@ -75,7 +74,7 @@ if not selected_models:
     st.sidebar.warning("Selecciona al menos un modelo.")
     st.stop()
 
-# 3️⃣ Métricas a mostrar
+# 3️⃣ Métricas
 metric_options = {
     "Exactitud (accuracy)": accuracy_score,
     "Precisión (precision)": precision_score,
@@ -88,12 +87,12 @@ selected_metrics = st.sidebar.multiselect(
     default=list(metric_options.keys())[:2],
 )
 
-# 4️⃣ Parámetros de GridSearch (opcional)
+# 4️⃣ Hiperparámetros
 st.sidebar.subheader("🔧 Hiperparámetros (GridSearch)")
 use_grid = st.sidebar.checkbox("Buscar hiperparámetros óptimos", value=False)
 
 # -------------------------------------------------
-# Preparar datos (escalado y split)
+# Preparar datos
 # -------------------------------------------------
 X_selected = X[features]
 scaler = StandardScaler()
@@ -107,9 +106,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 # Funciones auxiliares
 # -------------------------------------------------
 def train_model(name, model):
-    """Entrena el modelo (con o sin GridSearch) y devuelve el predictor entrenado."""
     if use_grid:
-        # Parámetros de búsqueda simplificados para demo
         param_grid = {
             "LogisticRegression": {"C": [0.1, 1, 10]},
             "KNeighborsClassifier": {"n_neighbors": [3, 5, 7]},
@@ -125,58 +122,50 @@ def train_model(name, model):
         )
         grid.fit(X_train, y_train)
         best = grid.best_estimator_
-        st.sidebar.success(f"Mejor {name}: {grid.best_params_}")
+        st.sidebar.info(f"Mejor {name}: {grid.best_params_}")
         return best
     else:
         model.fit(X_train, y_train)
         return model
 
-
-def plot_decision_boundary(model, X, y, title):
-    """Dibuja la frontera de decisión en 2D."""
-    x_min, x_max = X[:, 0].min() - 1, X[:, 0].max() + 1
-    y_min, y_max = X[:, 1].min() - 1, X[:, 1].max() + 1
-    xx, yy = np.meshgrid(
-        np.arange(x_min, x_max, 0.02), np.arange(y_min, y_max, 0.02)
-    )
+def plot_decision_boundary(model, X_data, y_data, title):
+    x_min, x_max = X_data[:, 0].min() - 0.5, X_data[:, 0].max() + 0.5
+    y_min, y_max = X_data[:, 1].min() - 0.5, X_data[:, 1].max() + 0.5
+    xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.02), np.arange(y_min, y_max, 0.02))
+    
     Z = model.predict(np.c_[xx.ravel(), yy.ravel()])
     Z = Z.reshape(xx.shape)
 
-    plt.figure(figsize=(6, 4))
-    plt.contourf(xx, yy, Z, alpha=0.3, cmap=plt.cm.coolwarm)
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.contourf(xx, yy, Z, alpha=0.3, cmap=plt.cm.coolwarm)
     sns.scatterplot(
-        x=X[:, 0],
-        y=X[:, 1],
-        hue=y,
-        palette="deep",
-        edgecolor="black",
-        s=60,
+        x=X_data[:, 0], y=X_data[:, 1], hue=y_data,
+        palette="deep", edgecolor="black", s=60, ax=ax
     )
-    plt.title(title)
-    plt.xlabel(features[0])
-    plt.ylabel(features[1])
-    plt.legend(title="Clase")
-    st.pyplot(plt.gcf())
-    plt.close()
-
+    ax.set_title(title)
+    ax.set_xlabel(features[0])
+    ax.set_ylabel(features[1])
+    st.pyplot(fig)
+    plt.close(fig)
 
 def compute_metrics(y_true, y_pred):
-    """Calcula las métricas solicitadas y devuelve un dict."""
     results = {}
     for metric_name in selected_metrics:
         func = metric_options[metric_name]
         if metric_name in ["Precisión (precision)", "Recall", "F1‑score"]:
-            # promedio macro para clasificación multiclase
             results[metric_name] = func(y_true, y_pred, average="macro")
         else:
             results[metric_name] = func(y_true, y_pred)
     return results
 
-
 # -------------------------------------------------
 # Entrenamiento y visualización
 # -------------------------------------------------
 st.subheader("📊 Resultados de los modelos")
+
+# Diccionario para guardar modelos ya entrenados y evitar re-entrenar en el bucle de visualización
+trained_models_dict = {}
+
 col1, col2 = st.columns(2)
 
 with col1:
@@ -184,19 +173,26 @@ with col1:
     metric_table = []
     for name in selected_models:
         model = train_model(name, model_options[name])
+        trained_models_dict[name] = model # Guardamos el modelo
+        
         y_pred = model.predict(X_test)
         metrics = compute_metrics(y_test, y_pred)
         metric_row = {"Modelo": name, **metrics}
         metric_table.append(metric_row)
+    
     df_metrics = pd.DataFrame(metric_table)
-    st.dataframe(df_metrics.style.format("{:.3f}"))
+    
+    # SOLUCIÓN AL ERROR: Aplicar formato solo a columnas numéricas
+    numeric_cols = df_metrics.select_dtypes(include=[np.number]).columns.tolist()
+    st.dataframe(df_metrics.style.format({col: "{:.3f}" for col in numeric_cols}))
 
 with col2:
-    st.markdown("### Matriz de confusión (último modelo seleccionado)")
+    st.markdown("### Matriz de confusión")
     last_name = selected_models[-1]
-    last_model = train_model(last_name, model_options[last_name])
+    last_model = trained_models_dict[last_name]
     y_pred_last = last_model.predict(X_test)
     cm = confusion_matrix(y_test, y_pred_last)
+    
     fig, ax = plt.subplots()
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", ax=ax,
                 xticklabels=iris.target_names,
@@ -207,12 +203,16 @@ with col2:
     st.pyplot(fig)
     plt.close(fig)
 
+st.divider()
+
 st.subheader("🗺️ Fronteras de decisión")
-for name in selected_models:
-    model = train_model(name, model_options[name])
-    plot_decision_boundary(
-        model,
-        X_test,
-        y_test,
-        title=f"Frontera de decisión – {name}",
-    )
+# Usamos columnas para que las gráficas no ocupen toda la pantalla verticalmente
+cols = st.columns(len(selected_models))
+for i, name in enumerate(selected_models):
+    with cols[i]:
+        plot_decision_boundary(
+            trained_models_dict[name],
+            X_test,
+            y_test,
+            title=f"{name}",
+        )
