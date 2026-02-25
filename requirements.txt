@@ -1,6 +1,6 @@
-streamlit>=1.54.0      # [2026 release notes - Streamlit Docs](https://docs.streamlit.io/develop/quick-reference/release-notes/2026)
-scikit-learn>=1.9.0    # [Milestones · scikit-learn/scikit-learn](https://github.com/scikit-learn/scikit-learn/milestones)
-pandas>=2.2.0
-matplotlib>=3.8.0
-seaborn>=0.13.0
-numpy>=1.26.0
+streamlit      # [2026 release notes - Streamlit Docs](https://docs.streamlit.io/develop/quick-reference/release-notes/2026)
+scikit-learn    # [Milestones · scikit-learn/scikit-learn](https://github.com/scikit-learn/scikit-learn/milestones)
+pandas
+matplotlib
+seaborn
+numpy
