@@ -122,7 +122,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 )
 
 @st.cache_data
-def train_and_evaluate(model_name, _X_train, _X_test, y_train, y_test, scale, cv, seed):
+def train_and_evaluate(model_name, _X_train, _X_test, y_train, y_test, scale, cv, seed, n_features=4):
     model = MODELS[model_name]
     if scale:
         pipe = Pipeline([("scaler", StandardScaler()), ("clf", model)])
@@ -148,7 +148,7 @@ if not selected_models:
 results = {}
 for name in selected_models:
     pipe, y_pred, y_prob, scores, cv_scores = train_and_evaluate(
-        name, X_train, X_test, y_train, y_test, scale_data, show_cv, int(random_state)
+        name, X_train, X_test, y_train, y_test, scale_data, show_cv, int(random_state), n_features=X_train.shape[1]
     )
     results[name] = {
         "pipe": pipe, "y_pred": y_pred, "y_prob": y_prob,
@@ -420,9 +420,11 @@ with tabs[4]:
         if "Regresión Logística" in selected_models:
             pipe = results["Regresión Logística"]["pipe"]
             clf = pipe.named_steps["clf"]
+            n_features_model = clf.coef_.shape[1]
+            feature_cols = iris.feature_names[:n_features_model]
             coef_df = pd.DataFrame(
                 clf.coef_,
-                columns=iris.feature_names,
+                columns=feature_cols,
                 index=iris.target_names,
             )
             st.subheader("Coeficientes — Regresión Logística")
